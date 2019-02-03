@@ -8,6 +8,19 @@ import scipy
 import pdb
 import skimage
 
+def exercise1Preprocess(imgpath, scale = 3):
+    image = scipy.misc.imread(imgpath, True, 'RGB')
+    (height,width) = image.shape
+    print(f"\nSize of image: {image.shape}")
+
+    label_ = modcrop(image, scale)
+    newHeight = int(height/scale)
+    newWidth = int(width/scale)
+    newImage = tf.image.resize_bicubic(label_,[newHeight,newWidth])
+    newImage = tf.image.resize_bicubic(newImage,[height,width])
+    return newImage, label_
+
+
 def imread(path, is_grayscale=True):
   """
   Read image using its path.
@@ -81,13 +94,13 @@ inputs = tf.placeholder(tf.float32, [None, input_size, input_size, c_dim], name=
 
 
 def convWithRelu(input, biases, weights):
-    conv = tf.nn.conv2d(input, weights, strides=[1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.conv2d(input, weights, strides=[1, 1, 1, 1], padding='VALID')
     conv = tf.nn.bias_add(conv, biases)
     conv = tf.nn.relu(conv)
     return conv
 
 def convOnly(input, biases, weights):
-    conv = tf.nn.conv2d(input, weights, strides=[1, 1, 1, 1], padding='SAME')
+    conv = tf.nn.conv2d(input, weights, strides=[1, 1, 1, 1], padding='VALID')
     conv = tf.nn.bias_add(conv, biases)
     return conv
 
@@ -125,11 +138,6 @@ conv3 = convOnly(conv2,biases['b3'], weights['w3'])
 model_path='./model/model.npy'
 model = np.load(model_path, encoding='latin1').item()
 
-##------ Add your code here: show the weights of model and try to visualisa
-# variabiles (w1, w2, w3)
-print(f"\nW1 Weights: \n {weights['w1'].read_value()}")
-print(f"\nW2 Weights: \n {weights['w2'].read_value()}")
-print(f"\nW3 Weights: \n {weights['w3'].read_value()}")
 
 
 """Initialize the model variabiles (w1, w2, w3, b1, b2, b3) with the pre-trained model file
@@ -143,6 +151,13 @@ for key in weights.keys():
 for key in biases.keys():
   sess.run(biases[key].assign(model[key]))
 
+##------ Add your code here: show the weights of model and try to visualisa
+# variabiles (w1, w2, w3)
+# **** I've moved this section from above as the weights weren't intiialised
+for key in weights.keys():
+    print(f"\n{key} Weights: \n {sess.run(weights[key])}")
+
+
 """Read the test image
 """
 blurred_image, groundtruth_image = preprocess('./image/butterfly_GT.bmp')
@@ -155,15 +170,26 @@ input_ = np.expand_dims(np.expand_dims(blurred_image, axis =0), axis=-1)
 # run the session
 # here you can also run to get feature map like 'conv1' and 'conv2'
 output_ = sess.run(conv3, feed_dict={inputs: input_})
-output_ = output_.reshape((255,255))
 
+# Crop the groundtruth and blurred images to be same size as the output
+(_, output_height, output_width, _) = output_.shape
+(groundtruth_height, groundtruth_width) = groundtruth_image.shape
+
+# Find the amount we need to crop
+heightTrim = int((groundtruth_height - output_height)/2)
+widthTrim = int((groundtruth_width - output_width)/2)
+
+# Perform the crop
+groundtruth_image = groundtruth_image[heightTrim:-heightTrim,widthTrim:-widthTrim]
+blurred_image = blurred_image[heightTrim:-heightTrim,widthTrim:-widthTrim]
+output_ = output_.reshape(groundtruth_image.shape)
 
 ##------ Add your code here: save the blurred and SR images and compute the psnr
 # hints: use the 'scipy.misc.imsave()'  and ' skimage.meause.compare_psnr()'
-print(output_.shape)
-print(blurred_image.shape)
 scipy.misc.imsave('blurred_image.png',blurred_image)
 scipy.misc.imsave('output.png',output_)
+scipy.misc.imsave('groundtruth_image.png',groundtruth_image)
 #max_val = max(np.max(output_),np.max(groundtruth_image)) - min(np.min(groundtruth_image),np.min(output_))
 
-print(f"\nPSNR score: {skimage.measure.compare_psnr(groundtruth_image,output_)}")
+print(f"\nCNN PSNR score: {skimage.measure.compare_psnr(groundtruth_image,output_)}")
+print(f"Baseline PSNR score: {skimage.measure.compare_psnr(groundtruth_image,blurred_image)}")
