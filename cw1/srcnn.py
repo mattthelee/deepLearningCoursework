@@ -1,6 +1,7 @@
 import time
 import os
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 import numpy as np
 import tensorflow as tf
@@ -137,6 +138,23 @@ conv3 = convOnly(conv2,biases['b3'], weights['w3'])
 """
 model_path='./model/model.npy'
 model = np.load(model_path, encoding='latin1').item()
+##------ Add your code here: show the weights of model and try to visualisa
+# variabiles (w1, w2, w3)
+for key in ['w1','w2','w3']:
+    weight = model[key]
+    (height,width,_,filters) = weight.shape
+    columnMax = 12
+    rowMax = int(filters / columnMax)
+    fig, subplots = plt.subplots(rowMax, columnMax)
+    plots = []
+    for filterNo in range(filters):
+        filter = weight[:,:,0,filterNo]
+        column = filterNo % columnMax
+        row = int(filterNo / columnMax)
+        print(f"Weight: {key}, filter: {filterNo}")
+        print(filter)
+        subplots[row -1 ,column].imshow(filter, shape=filter.shape, cmap=cm.Greys_r)
+    plt.show()
 
 
 
@@ -151,11 +169,6 @@ for key in weights.keys():
 for key in biases.keys():
   sess.run(biases[key].assign(model[key]))
 
-##------ Add your code here: show the weights of model and try to visualisa
-# variabiles (w1, w2, w3)
-# **** I've moved this section from above as the weights weren't intiialised
-for key in weights.keys():
-    print(f"\n{key} Weights: \n {sess.run(weights[key])}")
 
 
 """Read the test image
