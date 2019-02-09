@@ -140,20 +140,64 @@ model_path='./model/model.npy'
 model = np.load(model_path, encoding='latin1').item()
 ##------ Add your code here: show the weights of model and try to visualisa
 # variabiles (w1, w2, w3)
+
+# For each of the layers get its weights
 for key in ['w1','w2','w3']:
     weight = model[key]
-    (height,width,_,filters) = weight.shape
+    # Bizarrely w3 weights are in a different shape
+    if key == 'w3':
+        (height,width,filters,_) = weight.shape
+    else:
+        (height,width,_,filters) = weight.shape
+
+    # The 2nd layers are much more clearly visualised if normalised
+    if key == 'w2':
+        normalisation = True
+    else:
+        normalisation = False
+
+    # Set up subplot grid
     columnMax = 12
-    rowMax = int(filters / columnMax)
-    fig, subplots = plt.subplots(rowMax, columnMax)
-    plots = []
+    rowMax = int(filters / columnMax) + 1
+    fig, subplots = plt.subplots(rowMax, columnMax,)
+
+    # Remove axes for all subplots even those we have no weights for
+    for subRow in subplots:
+        for sub in subRow:
+            sub.axis('off')
+
+    if normalisation:
+        # Get min and max values for normalisation of each layer
+        vmin = 10000000
+        vmax = 0
+        for i in range(filters):
+            if key == 'w3':
+                filter = weight[:,:,i,0]
+            else:
+                filter = weight[:,:,0,i]
+            filMax = np.amax(filter)
+            filMin = np.amin(filter)
+            if filMax > vmax:
+                vmax = filMax
+            if filMin < vmin:
+                vmin = filMin
+
+    # For each filter add a subplot
     for filterNo in range(filters):
-        filter = weight[:,:,0,filterNo]
+        if key == 'w3':
+            filter = weight[:,:,filterNo,0]
+        else:
+            filter = weight[:,:,0,filterNo]
+        # Find subplot indices
         column = filterNo % columnMax
         row = int(filterNo / columnMax)
         print(f"Weight: {key}, filter: {filterNo}")
         print(filter)
-        subplots[row -1 ,column].imshow(filter, shape=filter.shape, cmap=cm.Greys_r)
+        if normalisation:
+            subplots[row ,column].imshow(filter, shape=filter.shape, cmap=cm.Greys_r, vmin=vmin, vmax=vmax, interpolation='none')
+        else:
+            subplots[row ,column].imshow(filter, shape=filter.shape, cmap=cm.Greys_r,interpolation='none')
+        subplots[row ,column].set_title(filterNo)
     plt.show()
 
 
@@ -202,7 +246,6 @@ output_ = output_.reshape(groundtruth_image.shape)
 scipy.misc.imsave('blurred_image.png',blurred_image)
 scipy.misc.imsave('output.png',output_)
 scipy.misc.imsave('groundtruth_image.png',groundtruth_image)
-#max_val = max(np.max(output_),np.max(groundtruth_image)) - min(np.min(groundtruth_image),np.min(output_))
 
 print(f"\nCNN PSNR score: {skimage.measure.compare_psnr(groundtruth_image,output_)}")
 print(f"Baseline PSNR score: {skimage.measure.compare_psnr(groundtruth_image,blurred_image)}")
